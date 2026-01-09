@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
 # توكن البوت الخاص بك
-TOKEN = "8304502500:AAHA11xiInilFSKHJB5VtrYSS5qCnq2td98"
+TOKEN = "8304502500:AAFXdEo2YKtDQIfrXgbkYirp50dcoFdj7vY"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
