@@ -2,6 +2,7 @@ import logging
 import os
 import yt_dlp
 import edge_tts
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
@@ -10,98 +11,51 @@ TOKEN = "8304502500:AAHA11xiInilFSKHJB5VtrYSS5qCnq2td98"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# دالة الترحيب والبداية
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
-    await update.message.reply_text(
-        f"أهلاً بك يا {user_name}! 🌟\n\n"
-        "أنا بوتك الذكي والمطور:\n"
-        "📥 للتحميل: أرسل أي رابط فيديو.\n"
-        "🎙 للصوت: أرسل أي نص وسأحوله لك."
-    )
+    await update.message.reply_text(f"أهلاً بك يا {user_name}! 🌟\nأرسل رابطاً للتحميل أو نصاً لتحويله لصوت فخم.")
 
-# دالة التعامل مع الرسائل (رابط أو نص)
-async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    
-    # إذا كان رابطاً
     if text.startswith(('http', 'www')):
-        context.user_data['url'] = text
-        keyboard = [
-            [InlineKeyboardButton("🎬 فيديو (أعلى جودة)", callback_query_data='vid_high')],
-            [InlineKeyboardButton("🎬 فيديو (جودة متوسطة)", callback_query_data='vid_low')],
-            [InlineKeyboardButton("🎵 صوت فقط (MP3)", callback_query_data='aud_only')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("اختر الجودة المطلوبة للتحميل:", reply_markup=reply_markup)
-    
-    # إذا كان نصاً عادياً
+        context.user_data['link'] = text
+        keyboard = [[InlineKeyboardButton("🎬 تحميل فيديو بأفضل جودة", callback_query_data='dl_video')]]
+        await update.message.reply_text("تم استلام الرابط:", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
-        context.user_data['text'] = text
-        keyboard = [
-            [InlineKeyboardButton("🎙 صوت رجل (فخم)", callback_query_data='voice_m')],
-            [InlineKeyboardButton("🎙 صوت امرأة (ناعم)", callback_query_data='voice_f')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("وصلني نصك! اختر نوع الصوت المفضل:", reply_markup=reply_markup)
+        context.user_data['text_to_audio'] = text
+        keyboard = [[InlineKeyboardButton("👨 ذكر (حامد)", callback_query_data='v_male'), 
+                     InlineKeyboardButton("👩 أنثى (زارينا)", callback_query_data='v_female')]]
+        await update.message.reply_text("اختر نوع الصوت المفضل لديك:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# معالجة ضغطات الأزرار (تحميل أو صوت)
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    data = query.data
-
-    # أولاً: معالجة تحويل النص لصوت
-    if data.startswith('voice_'):
-        text = context.user_data.get('text')
-        voice = "ar-SA-HamedNeural" if data == 'voice_m' else "ar-SA-ZariyahNeural"
-        await query.edit_message_text("⏳ جاري إنشاء الملف الصوتي...")
-        
-        output = f"voice_{query.from_user.id}.mp3"
-        try:
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(output)
-            await context.bot.send_voice(chat_id=query.message.chat_id, voice=open(output, 'rb'))
-            os.remove(output)
-            await query.message.delete()
-        except Exception as e:
-            await query.edit_message_text(f"خطأ في الصوت: {str(e)}")
-
-    # ثانياً: معالجة تحميل الفيديو
-    elif data.startswith(('vid_', 'aud_')):
-        url = context.user_data.get('url')
-        await query.edit_message_text("🚀 جاري التحميل.. قد يستغرق الأمر لحظات حسب حجم الفيديو.")
-        
-        format_opt = 'best' if data == 'vid_high' else 'worst'
-        if data == 'aud_only': format_opt = 'bestaudio'
-
-        ydl_opts = {
-            'format': format_opt,
-            'outtmpl': f'file_{query.from_user.id}.%(ext)s',
-            'quiet': True,
-            'no_warnings': True
-        }
-
+    
+    if query.data.startswith('v_'):
+        voice = "ar-SA-HamedNeural" if query.data == 'v_male' else "ar-SA-ZariyahNeural"
+        msg = await query.edit_message_text("⏳ جاري توليد صوت احترافي...")
+        out = f"v_{query.from_user.id}.mp3"
+        await edge_tts.Communicate(context.user_data['text_to_audio'], voice).save(out)
+        await context.bot.send_voice(chat_id=query.message.chat_id, voice=open(out, 'rb'), caption="تم التحويل بأعلى جودة ✅")
+        os.remove(out)
+        await msg.delete()
+    
+    elif query.data == 'dl_video':
+        msg = await query.edit_message_text("🚀 جاري التحميل... قد يستغرق وقتاً حسب الحجم.")
+        ydl_opts = {'format': 'best', 'outtmpl': f'vid_{query.from_user.id}.%(ext)s', 'quiet': True}
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = ydl.extract_info(context.user_data['link'], download=True)
                 filename = ydl.prepare_filename(info)
-            
-            if data == 'aud_only':
-                await context.bot.send_audio(chat_id=query.message.chat_id, audio=open(filename, 'rb'))
-            else:
-                await context.bot.send_video(chat_id=query.message.chat_id, video=open(filename, 'rb'))
-            
+            await context.bot.send_video(chat_id=query.message.chat_id, video=open(filename, 'rb'), caption="تم التحميل بنجاح ✅")
             os.remove(filename)
-            await query.message.delete()
+            await msg.delete()
         except Exception as e:
-            await query.edit_message_text(f"فشل التحميل: {str(e)}")
+            await msg.edit_text(f"خطأ في التحميل: {str(e)}")
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_all_messages))
-    
-    application.run_polling()
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CallbackQueryHandler(button_click))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_msg))
+    app.run_polling()
