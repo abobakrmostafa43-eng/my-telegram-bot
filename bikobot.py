@@ -11,48 +11,65 @@ TOKEN = "8304502500:AAHA11xiInilFSKHJB5VtrYSS5qCnq2td98"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# دالة الترحيب التفاعلية
+# 1. دالة الترحيب (start)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     await update.message.reply_text(
         f"يا هلا بك يا {user_name}! 😍\n\n"
-        "أنا بوتك الذكي، أقدر أساعدك في:\n"
-        "1️⃣ تحميل الفيديوهات (يوتيوب، فيسبوك، تيك توك، إنستا).\n"
-        "2️⃣ تحويل أي نص ترسل لي إلى صوت احترافي.\n\n"
-        "فقط أرسل الرابط للتحميل، أو أرسل نصاً لأحوله لصوت! 👇"
+        "أنا بوتك الذكي، أرسل لي أي رابط فيديو للتحميل، أو أي نص لأحوله لك لصوت بشري احترافي. 🎙\n\n"
+        "للمساعدة اضغط على /help"
     )
 
-# دالة تحويل النص إلى صوت
-async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# 2. دالة المساعدة (help) - لحل مشكلة القائمة
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    help_text = (
+        "📖 **طريقة استخدام البوت:**\n\n"
+        "📥 **للتحميل:** فقط أرسل رابط الفيديو (يوتيوب، فيسبوك، تيك توك، إنستجرام) وسأقوم بإرساله لك.\n\n"
+        "🗣 **لتحويل نص لصوت:** أرسل أي جملة نصية (ليست رابطاً) وسأحولها لك لملف صوتي عالي الجودة.\n\n"
+        "✅ البوت يعمل تلقائياً وبسرعة عالية."
+    )
+    await update.message.reply_text(help_text, parse_mode='Markdown')
+
+# 3. دالة معالجة النصوص (تفرق بين الرابط والنص العادي)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    # إذا كان النص رابطاً، نتركه لدالة التحميل
+    
+    # إذا كان النص يبدأ بـ http فهو رابط تحميل
     if text.startswith(('http://', 'https://')):
         return await download_video(update, context)
+    
+    # إذا كان نصاً عادياً، نقوم بتحويله لصوت
+    return await text_to_speech(update, context)
 
-    status_msg = await update.message.reply_text("جاري تحويل النص إلى صوت... 🎙")
-    voice = "ar-SA-ZariyahNeural" # صوت عربي نسائي طبيعي، يمكنك تغييره لـ ar-SA-HamedNeural لصوت رجالي
-    output_file = "speech.mp3"
+# 4. دالة تحويل النص إلى صوت
+async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    status_msg = await update.message.reply_text("جاري تحويل نصك إلى صوت رائع... 🎙")
+    
+    # إعدادات الصوت (صوت عربي سعودي طبيعي)
+    voice = "ar-SA-ZariyahNeural"
+    output_file = f"voice_{update.effective_user.id}.mp3"
 
     try:
         communicate = edge_tts.Communicate(text, voice)
         await communicate.save(output_file)
         
         with open(output_file, 'rb') as audio:
-            await update.message.reply_voice(voice=audio, caption="تفضل، هذا هو الملف الصوتي 🎧")
+            await update.message.reply_voice(voice=audio, caption="تفضل، نصك مسموعاً 🎧")
         
         os.remove(output_file)
         await status_msg.delete()
     except Exception as e:
-        await status_msg.edit_text(f"عذراً، فشلت في تحويل النص: {str(e)}")
+        await status_msg.edit_text(f"عذراً، حدث خطأ في معالجة الصوت: {str(e)}")
 
-# دالة التحميل (تدعم فيسبوك وغيره)
+# 5. دالة التحميل الشاملة (فيسبوك وغيره)
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    status_msg = await update.message.reply_text("وصلني الرابط! جاري الفحص والتحميل... 🚀")
+    status_msg = await update.message.reply_text("وصلني الرابط! جاري التحميل... 🚀")
     
     ydl_opts = {
         'format': 'best',
-        'outtmpl': 'video.%(ext)s',
+        'outtmpl': f'video_{update.effective_user.id}.%(ext)s',
         'quiet': True,
         'noplaylist': True,
     }
@@ -62,17 +79,23 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
             
-        await status_msg.edit_text("تحميل ناجح! جاري إرسال الفيديو لك الآن... 📤")
+        await status_msg.edit_text("جاري إرسال الفيديو... 📤")
         with open(filename, 'rb') as video:
-            await update.message.reply_video(video=video, caption=f"تم بحمد الله ✅\nالعنوان: {info.get('title', 'فيديو بدون عنوان')}")
+            await update.message.reply_video(video=video, caption=f"تم التحميل ✅\n{info.get('title', '')}")
         
         os.remove(filename)
         await status_msg.delete()
     except Exception as e:
-        await status_msg.edit_text(f"خطأ في التحميل (تأكد من أن الفيديو عام وليس خاص): {str(e)}")
+        await status_msg.edit_text(f"خطأ في التحميل: {str(e)}")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
+    
+    # تسجيل الأوامر
     app.add_handler(CommandHandler('start', start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_to_speech))
+    app.add_handler(CommandHandler('help', help_command))
+    
+    # تسجيل معالج الرسائل العام (نص أو روابط)
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    
     app.run_polling()
