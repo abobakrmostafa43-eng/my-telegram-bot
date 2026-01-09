@@ -1,101 +1,89 @@
 import logging
 import os
 import yt_dlp
-import asyncio
 import edge_tts
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 
-# ضع التوكن الخاص بك هنا
 TOKEN = "8304502500:AAHA11xiInilFSKHJB5VtrYSS5qCnq2td98"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# 1. دالة الترحيب (start)
+# دالة البداية مع أزرار الخيارات
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     await update.message.reply_text(
-        f"يا هلا بك يا {user_name}! 😍\n\n"
-        "أنا بوتك الذكي، أرسل لي أي رابط فيديو للتحميل، أو أي نص لأحوله لك لصوت بشري احترافي. 🎙\n\n"
-        "للمساعدة اضغط على /help"
+        f"أهلاً بك يا {user_name}! 🌟\n\n"
+        "أنا بوتك المتطور. كيف يمكنني مساعدتك اليوم؟\n"
+        "📥 أرسل رابط فيديو للتحميل.\n"
+        "🎙 أرسل نصاً وسأعرض عليك خيارات الصوت."
     )
 
-# 2. دالة المساعدة (help) - لحل مشكلة القائمة
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "📖 **طريقة استخدام البوت:**\n\n"
-        "📥 **للتحميل:** فقط أرسل رابط الفيديو (يوتيوب، فيسبوك، تيك توك، إنستجرام) وسأقوم بإرساله لك.\n\n"
-        "🗣 **لتحويل نص لصوت:** أرسل أي جملة نصية (ليست رابطاً) وسأحولها لك لملف صوتي عالي الجودة.\n\n"
-        "✅ البوت يعمل تلقائياً وبسرعة عالية."
-    )
-    await update.message.reply_text(help_text, parse_mode='Markdown')
-
-# 3. دالة معالجة النصوص (تفرق بين الرابط والنص العادي)
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# دالة استقبال النص وعرض خيارات (ذكر/أنثى)
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    
-    # إذا كان النص يبدأ بـ http فهو رابط تحميل
     if text.startswith(('http://', 'https://')):
         return await download_video(update, context)
     
-    # إذا كان نصاً عادياً، نقوم بتحويله لصوت
-    return await text_to_speech(update, context)
-
-# 4. دالة تحويل النص إلى صوت
-async def text_to_speech(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    status_msg = await update.message.reply_text("جاري تحويل نصك إلى صوت رائع... 🎙")
+    # حفظ النص مؤقتاً في ذاكرة البوت لاستخدامه بعد اختيار الصوت
+    context.user_data['pending_text'] = text
     
-    # إعدادات الصوت (صوت عربي سعودي طبيعي)
-    voice = "ar-SA-ZariyahNeural"
-    output_file = f"voice_{update.effective_user.id}.mp3"
+    keyboard = [
+        [
+            InlineKeyboardButton("🎙 صوت ذكر (حامد)", callback_query_data='voice_male'),
+            InlineKeyboardButton("🎙 صوت أنثى (زارينا)", callback_query_data='voice_female')
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("اختر نوع الصوت المفضل لديك:", reply_markup=reply_markup)
+
+# معالجة اختيار الزر (ذكر أو أنثى)
+async def voice_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = context.user_data.get('pending_text', '')
+    if not text:
+        await query.edit_message_text("عذراً، انتهت صلاحية النص. أرسله مرة أخرى.")
+        return
+
+    # اختيار المحرك بناءً على الضغطة
+    voice = "ar-SA-HamedNeural" if query.data == 'voice_male' else "ar-SA-ZariyahNeural"
+    output_file = f"voice_{query.from_user.id}.mp3"
+
+    await query.edit_message_text("⏳ جاري توليد صوت بشري عالي الجودة...")
 
     try:
-        communicate = edge_tts.Communicate(text, voice)
+        # تحسين الجودة عبر ضبط السرعة والنبرة
+        communicate = edge_tts.Communicate(text, voice, rate="+0%", pitch="+0Hz")
         await communicate.save(output_file)
         
         with open(output_file, 'rb') as audio:
-            await update.message.reply_voice(voice=audio, caption="تفضل، نصك مسموعاً 🎧")
+            await context.bot.send_voice(chat_id=query.message.chat_id, voice=audio, caption="✅ تم التحويل بأفضل جودة متاحة.")
         
         os.remove(output_file)
-        await status_msg.delete()
+        await query.message.delete()
     except Exception as e:
-        await status_msg.edit_text(f"عذراً، حدث خطأ في معالجة الصوت: {str(e)}")
+        await query.edit_message_text(f"خطأ تقني: {str(e)}")
 
-# 5. دالة التحميل الشاملة (فيسبوك وغيره)
+# دالة التحميل
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    status_msg = await update.message.reply_text("وصلني الرابط! جاري التحميل... 🚀")
-    
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': f'video_{update.effective_user.id}.%(ext)s',
-        'quiet': True,
-        'noplaylist': True,
-    }
-
+    msg = await update.message.reply_text("🚀 جاري التحميل من المنصة...")
+    ydl_opts = {'format': 'best', 'outtmpl': 'vid.%(ext)s', 'quiet': True}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            
-        await status_msg.edit_text("جاري إرسال الفيديو... 📤")
-        with open(filename, 'rb') as video:
-            await update.message.reply_video(video=video, caption=f"تم التحميل ✅\n{info.get('title', '')}")
-        
-        os.remove(filename)
-        await status_msg.delete()
+            path = ydl.prepare_filename(info)
+        await context.bot.send_video(chat_id=update.effective_chat.id, video=open(path, 'rb'))
+        os.remove(path)
+        await msg.delete()
     except Exception as e:
-        await status_msg.edit_text(f"خطأ في التحميل: {str(e)}")
+        await msg.edit_text(f"فشل التحميل: {str(e)}")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
-    
-    # تسجيل الأوامر
     app.add_handler(CommandHandler('start', start))
-    app.add_handler(CommandHandler('help', help_command))
-    
-    # تسجيل معالج الرسائل العام (نص أو روابط)
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    
+    app.add_handler(CallbackQueryHandler(voice_choice_handler))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
     app.run_polling()
