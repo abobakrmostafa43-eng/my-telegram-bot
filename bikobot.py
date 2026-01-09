@@ -1,4 +1,4 @@
-from config import TOKEN
+TOKEN = "8304502500:AAHA11xiInilFSKHJB5VtrYSS5qCnq2td98"
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
