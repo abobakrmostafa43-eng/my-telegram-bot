@@ -6,7 +6,7 @@ from telegram.ext import (
 import asyncio, os, re, yt_dlp, logging
 
 # --- الإعدادات الأساسية (أضف بياناتك هنا) ---
-TOKEN = "8304502500:AAHC0qdWWoCCZWVGptwfrsf9rCmDLyoBixE"
+TOKEN = "8304502500:AAEsOxcSidqrtEAn3cY1mYrQ7jAhmddUflk"
 ADMIN_ID = 1947672003 # ضع هنا الـ ID الخاص بك
 
 # إعداد السجلات (Logs)
