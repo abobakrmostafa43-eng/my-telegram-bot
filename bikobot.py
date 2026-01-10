@@ -7,7 +7,7 @@ import asyncio, os, re, yt_dlp, logging
 
 # --- الإعدادات الأساسية (أضف بياناتك هنا) ---
 TOKEN = "8304502500:AAHC0qdWWoCCZWVGptwfrsf9rCmDLyoBixE"
-ADMIN_ID = 8304502500  # ضع هنا الـ ID الخاص بك
+ADMIN_ID = 1947672003 # ضع هنا الـ ID الخاص بك
 
 # إعداد السجلات (Logs)
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
