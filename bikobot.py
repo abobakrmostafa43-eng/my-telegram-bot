@@ -265,10 +265,7 @@ def main():
 
     print("✅ البوت شغال")
     app.run_polling()
-
 if __name__ == "__main__":
-    main()
-if __name__ == '__main__':
-    keep_alive()  # تشغيل السيرفر الوهمي لفتح الـ Port
-    # هنا ضع أمر تشغيل البوت الخاص بك، مثال:
-    # application.run_polling()
+    keep_alive()  # تشغيل السيرفر الوهمي أولاً
+    main()        # ثم تشغيل البوت الأساسي
+
