@@ -9,7 +9,7 @@ import asyncio, os, re, yt_dlp, logging
 # --- الإعدادات ---
 TOKEN = "8304502500:AAHjoPk63bipkWzwmMMIcZzj5bFC46KPEJ8"
 ADMIN_ID = 1947672003  # ضع ID الخاص بك
-WEBHOOK_URL = "https://your-app-name.onrender.com"  # ⚠️ غيّر هذا لرابط Render الخاص بك
+WEBHOOK_URL = "https://my-telegram-bot-4kpi.onrender.com"  # ⚠️ غيّر هذا لرابط Render الخاص بك
 
 # Flask App
 app = Flask(__name__)
