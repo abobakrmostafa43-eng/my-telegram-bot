@@ -1,3 +1,19 @@
+from flask import Flask
+from threading import Thread
+import os
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -252,3 +268,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+if __name__ == '__main__':
+    keep_alive()  # تشغيل السيرفر الوهمي لفتح الـ Port
+    # هنا ضع أمر تشغيل البوت الخاص بك، مثال:
+    # application.run_polling()
