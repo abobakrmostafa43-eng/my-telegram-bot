@@ -10,7 +10,8 @@ import yt_dlp
 import logging
 
 # الإعدادات الأساسية
-  # ضع الـ ID الخاص بك
+TOKEN = "8562688558:AAEfh8nDd8WKQuaxmMIhMWMQPTby4skzy64"
+ADMIN_ID = 1947672003  # ضع الـ ID الخاص بك
 
 # إعداد السجلات
 logging.basicConfig(
