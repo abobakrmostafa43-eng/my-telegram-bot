@@ -11,8 +11,8 @@ import logging
 import edge_tts  # تأكدت من استيرادها هنا بالأعلى
 
 # 1. الإعدادات الأساسية - (تأكد من وضع التوكن والـ ID)
-TOKEN = "هنا_ضع_التوكن_بتاعك"
-ADMIN_ID = 123456789  # ضع الـ ID الحقيقي الخاص بك هنا كأرقام فقط
+TOKEN = "8562688558:AAEfh8nDd8WKQuaxmMIhMWMQPTby4skzy64"
+ADMIN_ID = 1947672003 # ضع الـ ID الحقيقي الخاص بك هنا كأرقام فقط
 
 # إعداد السجلات
 logging.basicConfig(
